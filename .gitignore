@@ -1,0 +1,46 @@
+# Исключение конфигураций и секретов (пароли от БД, API-ключи)
+.env
+.env.*
+!.env.example
+
+# Кэш Python и скомпилированные файлы
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Виртуальные окружения Python (где хранятся скачанные библиотеки)
+venv/
+.venv/
+env/
+.env_venv/
+
+# Логи и локальные базы данных (если для тестов используется SQLite)
+*.log
+*.sqlite3
+
+# Кэш тестов и линтеров
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Настройки редакторов кода (VS Code, PyCharm)
+.idea/
+.vscode/
+*.swp
+*.iml
