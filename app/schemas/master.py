@@ -8,6 +8,7 @@ class ServiceOut(BaseModel):
     title: str
     price: Decimal
     duration_minutes: int
+    description: str
 
     class Config:
         from_attributes = True
