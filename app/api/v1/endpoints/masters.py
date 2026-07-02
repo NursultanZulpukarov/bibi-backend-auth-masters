@@ -1,15 +1,16 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.v1.endpoints.auth import limiter
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.master import Master, Service
 from app.models.user import User
-from app.schemas.master import MasterOut, ServiceCreate, ServiceOut
+from app.schemas.master import MasterOut, ServiceCreate, ServiceOut, master_to_out
 
 router = APIRouter(tags=["masters"])
 
@@ -34,7 +35,7 @@ async def get_masters(
         stmt = stmt.where(Master.category == specialization)
 
     result = await db.execute(stmt)
-    return result.scalars().all()
+    return [master_to_out(m) for m in result.scalars().all()]
 
 
 @router.get("/masters/{username}", response_model=MasterOut)
@@ -48,11 +49,13 @@ async def get_master_profile(username: str, db: AsyncSession = Depends(get_db)):
     master = result.scalar_one_or_none()
     if master is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master not found")
-    return master
+    return master_to_out(master)
 
 
 @router.post("/masters/services", response_model=ServiceOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/minute")
 async def add_service(
+    request: Request,
     payload: ServiceCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

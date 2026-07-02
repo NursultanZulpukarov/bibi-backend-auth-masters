@@ -1,7 +1,9 @@
 import re
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from app.schemas.master import ServiceOut
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,30}$")
 PHONE_RE = re.compile(r"^\+?[0-9]{10,15}$")
@@ -50,19 +52,49 @@ class LoginRequest(BaseModel):
 
 
 class UserOut(BaseModel):
+    """
+    Wire format matches the Flutter app's single AppUser model (used for both
+    "myself" and "masters browsed in the directory"), so field names here are
+    image_url/bio/specialization/district — not the User/Master ORM attribute
+    names. For master accounts these are filled in from the linked Master row
+    by build_user_out() in the auth endpoints; they stay None for clients.
+    """
+
     id: int
     username: str
     email: Optional[str] = None
     phone: Optional[str] = None
     role: str = "client"
     name: Optional[str] = ""
-    avatar_url: Optional[str] = None
-
-    class Config:
-        from_attributes = True
+    image_url: Optional[str] = None
+    bio: Optional[str] = None
+    specialization: Optional[str] = None
+    district: Optional[str] = None
+    services: List[ServiceOut] = []
 
 
 class AuthResponse(BaseModel):
     token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+def build_user_out(user, master=None) -> UserOut:
+    """
+    user: app.models.user.User, master: app.models.master.Master | None
+    Not type-hinted against the ORM classes to avoid a schemas->models->schemas
+    import cycle risk; callers always pass the real ORM instances.
+    """
+    return UserOut(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        phone=user.phone,
+        role=user.role,
+        name=user.name,
+        image_url=(master.photo_url if master else None) or user.avatar_url,
+        bio=master.bio if master else None,
+        specialization=master.category if master else None,
+        district=master.district if master else None,
+        services=[ServiceOut.model_validate(s) for s in master.services] if master else [],
+    )

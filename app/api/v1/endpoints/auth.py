@@ -4,6 +4,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.security import (
     DUMMY_HASH,
@@ -15,11 +16,20 @@ from app.core.security import (
 from app.db.session import get_db
 from app.models.master import Master
 from app.models.user import User
-from app.schemas.user import AuthResponse, LoginRequest, RegisterRequest, UserOut
+from app.schemas.user import AuthResponse, LoginRequest, RegisterRequest, UserOut, build_user_out
 
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["auth"])
 me_router = APIRouter(tags=["auth"])
+
+
+async def _get_master_for(db: AsyncSession, user: User) -> Master | None:
+    if user.role != "master":
+        return None
+    result = await db.execute(
+        select(Master).options(selectinload(Master.services)).where(Master.user_id == user.id)
+    )
+    return result.scalar_one_or_none()
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
@@ -58,6 +68,7 @@ async def register(request: Request, payload: RegisterRequest, db: AsyncSession 
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
 
+    master = None
     if payload.role == "master":
         # A Master row with this username must not already exist: auto-linking to it
         # here would let anyone silently take over a pre-existing business profile
@@ -83,11 +94,22 @@ async def register(request: Request, payload: RegisterRequest, db: AsyncSession 
         )
         db.add(master)
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Rare race: another request registered the same master username between
+        # our check above and this commit. Surface it as a normal conflict
+        # instead of a raw 500.
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
     await db.refresh(user)
+    if master is not None:
+        # Re-fetch with services eager-loaded (freshly created, so always empty,
+        # but this keeps the shape consistent with login/me).
+        master = await _get_master_for(db, user)
 
     token = create_access_token(user.id)
-    return AuthResponse(token=token, user=UserOut.model_validate(user))
+    return AuthResponse(token=token, user=build_user_out(user, master))
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -117,10 +139,12 @@ async def login(request: Request, payload: LoginRequest, db: AsyncSession = Depe
             detail="Account is disabled",
         )
 
+    master = await _get_master_for(db, user)
     token = create_access_token(user.id)
-    return AuthResponse(token=token, user=UserOut.model_validate(user))
+    return AuthResponse(token=token, user=build_user_out(user, master))
 
 
 @me_router.get("/me", response_model=UserOut)
-async def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+async def get_me(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    master = await _get_master_for(db, current_user)
+    return build_user_out(current_user, master)
