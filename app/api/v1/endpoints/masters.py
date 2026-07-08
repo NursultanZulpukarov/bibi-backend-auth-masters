@@ -9,6 +9,7 @@ from app.api.v1.endpoints.auth import limiter
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.master import Master, Review, Service
+from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.master import (
     MasterOut,
@@ -141,6 +142,18 @@ async def add_review(
         user_id=current_user.id,
     )
     db.add(review)
+
+    if master.user_id is not None:
+        stars = "⭐" * payload.rating
+        db.add(
+            Notification(
+                user_id=master.user_id,
+                title="Новый отзыв",
+                text=f"{review.client_name} оставил(а) отзыв {stars}",
+                type="new_review",
+            )
+        )
+
     await db.commit()
     await db.refresh(review)
     return review

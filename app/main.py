@@ -2,12 +2,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import JSONResponse
 
 from app import models  # noqa: F401  ensures all models are registered on Base.metadata
-from app.api.v1.endpoints import auth, masters
+from app.api.v1.endpoints import auth, masters, notifications, posts
 from app.core.config import settings
 from app.db.migrations import run_migrations
 from app.db.session import Base, engine
@@ -38,6 +39,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Responses here are base64-photo-heavy JSON (masters/posts/reviews), which
+# compresses well over the wire — meaningful win for users on slow/mobile
+# connections, cheap to add.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 app.state.limiter = auth.limiter
 app.add_middleware(SlowAPIMiddleware)
 
@@ -55,3 +61,5 @@ async def root():
 app.include_router(auth.router)
 app.include_router(auth.me_router)
 app.include_router(masters.router)
+app.include_router(posts.router)
+app.include_router(notifications.router)

@@ -81,3 +81,21 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+async def get_current_user_optional(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    For public endpoints that personalize their response when a token is
+    present (e.g. is_liked_by_me on a posts feed) but must still work for
+    logged-out browsing — returns None instead of 401 when there's no token
+    or it's invalid, rather than blocking the request.
+    """
+    if token is None:
+        return None
+    try:
+        return await get_current_user(token=token, db=db)
+    except HTTPException:
+        return None
