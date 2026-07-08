@@ -16,7 +16,14 @@ from app.core.security import (
 from app.db.session import get_db
 from app.models.master import Master
 from app.models.user import User
-from app.schemas.user import AuthResponse, LoginRequest, RegisterRequest, UserOut, build_user_out
+from app.schemas.user import (
+    AuthResponse,
+    LoginRequest,
+    RegisterRequest,
+    UpdateProfileRequest,
+    UserOut,
+    build_user_out,
+)
 
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -27,7 +34,9 @@ async def _get_master_for(db: AsyncSession, user: User) -> Master | None:
     if user.role != "master":
         return None
     result = await db.execute(
-        select(Master).options(selectinload(Master.services)).where(Master.user_id == user.id)
+        select(Master)
+        .options(selectinload(Master.services), selectinload(Master.reviews))
+        .where(Master.user_id == user.id)
     )
     return result.scalar_one_or_none()
 
@@ -147,4 +156,37 @@ async def login(request: Request, payload: LoginRequest, db: AsyncSession = Depe
 @me_router.get("/me", response_model=UserOut)
 async def get_me(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     master = await _get_master_for(db, current_user)
+    return build_user_out(current_user, master)
+
+
+@me_router.patch("/me", response_model=UserOut)
+async def update_me(
+    payload: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if payload.name is not None:
+        current_user.name = payload.name
+    if payload.image_url is not None:
+        current_user.avatar_url = payload.image_url
+    db.add(current_user)
+
+    master = await _get_master_for(db, current_user)
+    if master is not None:
+        if payload.name is not None:
+            master.name = payload.name
+        if payload.image_url is not None:
+            master.photo_url = payload.image_url
+        if payload.bio is not None:
+            master.bio = payload.bio
+        if payload.specialization is not None:
+            master.category = payload.specialization
+        if payload.district is not None:
+            master.district = payload.district
+        db.add(master)
+
+    await db.commit()
+    await db.refresh(current_user)
+    if master is not None:
+        master = await _get_master_for(db, current_user)
     return build_user_out(current_user, master)

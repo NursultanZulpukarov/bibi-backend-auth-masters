@@ -13,6 +13,7 @@ MIGRATIONS = [
     "ALTER TABLE users ALTER COLUMN role SET DEFAULT 'client'",
     "UPDATE users SET role = 'client' WHERE role IS NULL",
     "ALTER TABLE users ALTER COLUMN role SET NOT NULL",
+    "ALTER TABLE reviews ADD COLUMN IF NOT EXISTS image_url TEXT",
 ]
 
 

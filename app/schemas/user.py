@@ -1,9 +1,10 @@
 import re
+from decimal import Decimal
 from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.schemas.master import ServiceOut
+from app.schemas.master import MAX_IMAGE_DATA_URL_LEN, ReviewOut, ServiceOut
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,30}$")
 PHONE_RE = re.compile(r"^\+?[0-9]{10,15}$")
@@ -19,7 +20,7 @@ class RegisterRequest(BaseModel):
     bio: Optional[str] = Field(default=None, max_length=500)
     specialization: Optional[str] = Field(default=None, max_length=50)
     district: Optional[str] = Field(default=None, max_length=100)
-    image_url: Optional[str] = Field(default=None, max_length=1000)
+    image_url: Optional[str] = Field(default=None, max_length=MAX_IMAGE_DATA_URL_LEN)
 
     @field_validator("username")
     @classmethod
@@ -51,6 +52,22 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=1, max_length=72)
 
 
+class UpdateProfileRequest(BaseModel):
+    """
+    All fields optional and only applied when present, so a client can PATCH
+    just the one field it changed. bio/specialization/district only take
+    effect for accounts that have a linked Master row — silently ignored
+    for plain clients rather than erroring, since a client PATCHing its own
+    display name shouldn't need to know it's not a master.
+    """
+
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    image_url: Optional[str] = Field(default=None, max_length=MAX_IMAGE_DATA_URL_LEN)
+    bio: Optional[str] = Field(default=None, max_length=500)
+    specialization: Optional[str] = Field(default=None, max_length=50)
+    district: Optional[str] = Field(default=None, max_length=100)
+
+
 class UserOut(BaseModel):
     """
     Wire format matches the Flutter app's single AppUser model (used for both
@@ -70,7 +87,10 @@ class UserOut(BaseModel):
     bio: Optional[str] = None
     specialization: Optional[str] = None
     district: Optional[str] = None
+    rating: Optional[Decimal] = None
+    review_count: Optional[int] = 0
     services: List[ServiceOut] = []
+    reviews: List[ReviewOut] = []
 
 
 class AuthResponse(BaseModel):
@@ -96,5 +116,8 @@ def build_user_out(user, master=None) -> UserOut:
         bio=master.bio if master else None,
         specialization=master.category if master else None,
         district=master.district if master else None,
+        rating=master.rating if master else None,
+        review_count=master.review_count if master else 0,
         services=[ServiceOut.model_validate(s) for s in master.services] if master else [],
+        reviews=[ReviewOut.model_validate(r) for r in master.reviews] if master else [],
     )

@@ -34,6 +34,9 @@ class Master(Base):
 
     owner = relationship("User", back_populates="master_profile")
     services = relationship("Service", back_populates="master", cascade="all, delete-orphan")
+    reviews = relationship(
+        "Review", back_populates="master", cascade="all, delete-orphan", order_by="desc(Review.created_at)"
+    )
 
 
 class Service(Base):
@@ -51,3 +54,24 @@ class Service(Base):
     created_at = Column(DateTime, default=utcnow, nullable=True)
 
     master = relationship("Master", back_populates="services")
+
+
+class Review(Base):
+    __tablename__ = "reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+    master_id = Column(Integer, ForeignKey("masters.id", ondelete="CASCADE"), nullable=True)
+    client_name = Column(String(100), nullable=False)
+    client_avatar_url = Column(Text, nullable=True)
+    rating = Column(Integer, nullable=True)
+    text = Column(Text, nullable=True)
+    service_name = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=utcnow, nullable=True)
+    service_id = Column(Integer, ForeignKey("services.id", ondelete="SET NULL"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    image_url = Column(Text, nullable=True)
+    # `client_id` also exists on this pre-existing table (legacy/duplicate of
+    # user_id from before this backend was merged) — deliberately left out of
+    # the model since nothing needs to read or write it.
+
+    master = relationship("Master", back_populates="reviews")
