@@ -14,6 +14,15 @@ MIGRATIONS = [
     "UPDATE users SET role = 'client' WHERE role IS NULL",
     "ALTER TABLE users ALTER COLUMN role SET NOT NULL",
     "ALTER TABLE reviews ADD COLUMN IF NOT EXISTS image_url TEXT",
+    # None of these had any index beyond the primary key on id — every
+    # "this master's services/posts/reviews" or "likes for these posts"
+    # query was a full table scan. Fine at today's row counts, but cheap to
+    # fix now rather than as a fire drill once the tables grow.
+    "CREATE INDEX IF NOT EXISTS ix_services_master_id ON services(master_id)",
+    "CREATE INDEX IF NOT EXISTS ix_reviews_master_id ON reviews(master_id)",
+    "CREATE INDEX IF NOT EXISTS ix_posts_master_id ON posts(master_id)",
+    "CREATE INDEX IF NOT EXISTS ix_post_likes_post_id ON post_likes(post_id)",
+    "CREATE INDEX IF NOT EXISTS ix_post_saves_post_id ON post_saves(post_id)",
 ]
 
 
