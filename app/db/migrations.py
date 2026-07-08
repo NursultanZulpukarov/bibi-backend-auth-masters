@@ -23,6 +23,12 @@ MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS ix_posts_master_id ON posts(master_id)",
     "CREATE INDEX IF NOT EXISTS ix_post_likes_post_id ON post_likes(post_id)",
     "CREATE INDEX IF NOT EXISTS ix_post_saves_post_id ON post_saves(post_id)",
+    # whatsapp_phone existed but was never populated at registration until
+    # now — backfill existing masters from their linked account's phone so
+    # the WhatsApp booking button isn't empty for accounts created earlier.
+    "UPDATE masters m SET whatsapp_phone = u.phone "
+    "FROM users u "
+    "WHERE m.user_id = u.id AND m.whatsapp_phone IS NULL AND u.phone IS NOT NULL",
 ]
 
 

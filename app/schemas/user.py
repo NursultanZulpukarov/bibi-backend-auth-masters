@@ -21,6 +21,7 @@ class RegisterRequest(BaseModel):
     specialization: Optional[str] = Field(default=None, max_length=50)
     district: Optional[str] = Field(default=None, max_length=100)
     image_url: Optional[str] = Field(default=None, max_length=MAX_IMAGE_DATA_URL_LEN)
+    whatsapp_phone: Optional[str] = Field(default=None, max_length=20)
 
     @field_validator("username")
     @classmethod
@@ -66,6 +67,7 @@ class UpdateProfileRequest(BaseModel):
     bio: Optional[str] = Field(default=None, max_length=500)
     specialization: Optional[str] = Field(default=None, max_length=50)
     district: Optional[str] = Field(default=None, max_length=100)
+    whatsapp_phone: Optional[str] = Field(default=None, max_length=20)
 
 
 class UserOut(BaseModel):
@@ -87,6 +89,7 @@ class UserOut(BaseModel):
     bio: Optional[str] = None
     specialization: Optional[str] = None
     district: Optional[str] = None
+    whatsapp_phone: Optional[str] = None
     rating: Optional[Decimal] = None
     review_count: Optional[int] = 0
     services: List[ServiceOut] = []
@@ -116,6 +119,7 @@ def build_user_out(user, master=None) -> UserOut:
         bio=master.bio if master else None,
         specialization=master.category if master else None,
         district=master.district if master else None,
+        whatsapp_phone=master.whatsapp_phone if master else None,
         rating=master.rating if master else None,
         review_count=master.review_count if master else 0,
         services=[ServiceOut.model_validate(s) for s in master.services] if master else [],

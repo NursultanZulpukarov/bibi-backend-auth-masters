@@ -160,6 +160,42 @@ async def explore_posts(
     return await _build_posts_out(db, pairs, current_user.id if current_user else None)
 
 
+@router.get("/me/liked-posts", response_model=List[PostOut])
+async def my_liked_posts(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(Post, Master)
+        .join(PostLike, PostLike.post_id == Post.id)
+        .join(Master, Master.user_id == Post.master_id)
+        .options(selectinload(Post.service))
+        .where(PostLike.user_id == current_user.id)
+        .order_by(Post.created_at.desc())
+    )
+    rows = (await db.execute(stmt)).all()
+    pairs = [(post, master) for post, master in rows]
+    return await _build_posts_out(db, pairs, current_user.id)
+
+
+@router.get("/me/saved-posts", response_model=List[PostOut])
+async def my_saved_posts(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(Post, Master)
+        .join(PostSave, PostSave.post_id == Post.id)
+        .join(Master, Master.user_id == Post.master_id)
+        .options(selectinload(Post.service))
+        .where(PostSave.user_id == current_user.id)
+        .order_by(Post.created_at.desc())
+    )
+    rows = (await db.execute(stmt)).all()
+    pairs = [(post, master) for post, master in rows]
+    return await _build_posts_out(db, pairs, current_user.id)
+
+
 @router.post("/posts/{post_id}/like")
 async def toggle_like(
     post_id: int,

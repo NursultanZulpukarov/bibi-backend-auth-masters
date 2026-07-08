@@ -54,6 +54,14 @@ class ReviewCreate(BaseModel):
     image_url: Optional[str] = Field(default=None, max_length=MAX_IMAGE_DATA_URL_LEN)
 
 
+class MyReviewOut(ReviewOut):
+    """ReviewOut plus which master it was written for, for the client's own
+    "Мои отзывы" list (which needs to link back to that master/service)."""
+
+    master_username: str
+    master_name: str
+
+
 class MasterOut(BaseModel):
     """
     Wire format matches the Flutter app's AppUser model: specialization/

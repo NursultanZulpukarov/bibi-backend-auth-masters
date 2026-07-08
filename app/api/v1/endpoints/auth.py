@@ -100,6 +100,10 @@ async def register(request: Request, payload: RegisterRequest, db: AsyncSession 
             district=payload.district,
             bio=payload.bio,
             photo_url=payload.image_url,
+            # Defaults to the account's login phone — in Bishkek that's
+            # normally the same number clients would message on WhatsApp
+            # anyway. A master can set a different one via PATCH /me.
+            whatsapp_phone=payload.whatsapp_phone or payload.phone,
         )
         db.add(master)
 
@@ -183,6 +187,8 @@ async def update_me(
             master.category = payload.specialization
         if payload.district is not None:
             master.district = payload.district
+        if payload.whatsapp_phone is not None:
+            master.whatsapp_phone = payload.whatsapp_phone
         db.add(master)
 
     await db.commit()

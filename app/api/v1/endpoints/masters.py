@@ -13,6 +13,7 @@ from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.master import (
     MasterOut,
+    MyReviewOut,
     ReviewCreate,
     ReviewOut,
     ServiceCreate,
@@ -157,3 +158,32 @@ async def add_review(
     await db.commit()
     await db.refresh(review)
     return review
+
+
+@router.get("/me/reviews", response_model=List[MyReviewOut])
+async def my_reviews(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(Review, Master)
+        .join(Master, Master.id == Review.master_id)
+        .where(Review.user_id == current_user.id)
+        .order_by(Review.created_at.desc())
+    )
+    rows = (await db.execute(stmt)).all()
+    return [
+        MyReviewOut(
+            id=review.id,
+            client_name=review.client_name,
+            client_avatar_url=review.client_avatar_url,
+            rating=review.rating,
+            text=review.text,
+            service_name=review.service_name,
+            image_url=review.image_url,
+            created_at=review.created_at,
+            master_username=master.username,
+            master_name=master.name,
+        )
+        for review, master in rows
+    ]
