@@ -68,6 +68,8 @@ async def _build_posts_out(
                 service_id=service.id if service else None,
                 service_name=service.name if service else None,
                 service_price=service.price if service else None,
+                service_duration=service.duration if service else None,
+                service_description=service.description if service else None,
                 like_count=like_counts.get(post.id, 0),
                 is_liked_by_me=post.id in liked_ids,
                 is_saved_by_me=post.id in saved_ids,

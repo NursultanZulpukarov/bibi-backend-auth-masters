@@ -21,6 +21,8 @@ class PostOut(BaseModel):
     service_id: Optional[int] = None
     service_name: Optional[str] = None
     service_price: Optional[Decimal] = None
+    service_duration: Optional[int] = None
+    service_description: Optional[str] = None
     like_count: int = 0
     is_liked_by_me: bool = False
     is_saved_by_me: bool = False
