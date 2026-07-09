@@ -17,6 +17,7 @@ from app.db.session import get_db
 from app.models.master import Master
 from app.models.user import User
 from app.schemas.user import (
+    USERNAME_RE,
     AuthResponse,
     LoginRequest,
     RegisterRequest,
@@ -39,6 +40,34 @@ async def _get_master_for(db: AsyncSession, user: User) -> Master | None:
         .where(Master.user_id == user.id)
     )
     return result.scalar_one_or_none()
+
+
+@router.get("/check-username")
+@limiter.limit("30/minute")
+async def check_username(request: Request, username: str, db: AsyncSession = Depends(get_db)):
+    """
+    For live "this username is taken" feedback while typing on the register
+    form. Mirrors both uniqueness checks register() itself enforces (users
+    table + masters table) so a false "available" here can't still 409 at
+    submit time.
+    """
+    username = username.strip()
+    if not USERNAME_RE.match(username):
+        return {"available": False, "reason": "invalid_format"}
+
+    user_exists = (
+        await db.execute(select(User.id).where(User.username == username))
+    ).scalar_one_or_none()
+    if user_exists is not None:
+        return {"available": False, "reason": "taken"}
+
+    master_exists = (
+        await db.execute(select(Master.id).where(Master.username == username))
+    ).scalar_one_or_none()
+    if master_exists is not None:
+        return {"available": False, "reason": "taken"}
+
+    return {"available": True}
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
