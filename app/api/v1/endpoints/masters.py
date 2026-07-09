@@ -162,14 +162,20 @@ async def add_review(
 
 @router.get("/me/reviews", response_model=List[MyReviewOut])
 async def my_reviews(
+    limit: int = Query(default=30, ge=1, le=60),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # review.image_url can also be a base64 data URL up to ~3MB — same
+    # unbounded-response risk as the posts list endpoints.
     stmt = (
         select(Review, Master)
         .join(Master, Master.id == Review.master_id)
         .where(Review.user_id == current_user.id)
         .order_by(Review.created_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     rows = (await db.execute(stmt)).all()
     return [

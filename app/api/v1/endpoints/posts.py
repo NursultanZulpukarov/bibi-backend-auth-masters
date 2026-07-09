@@ -164,16 +164,23 @@ async def explore_posts(
 
 @router.get("/me/liked-posts", response_model=List[PostOut])
 async def my_liked_posts(
+    limit: int = Query(default=30, ge=1, le=60),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # limit/offset match GET /posts's cap: image_url is a base64 data URL up
+    # to ~3MB, so an unbounded list here could return hundreds of MB for a
+    # user with a long like history.
     stmt = (
         select(Post, Master)
         .join(PostLike, PostLike.post_id == Post.id)
         .join(Master, Master.user_id == Post.master_id)
         .options(selectinload(Post.service))
-        .where(PostLike.user_id == current_user.id)
+        .where(PostLike.user_id == current_user.id, Master.is_active.is_(True))
         .order_by(Post.created_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     rows = (await db.execute(stmt)).all()
     pairs = [(post, master) for post, master in rows]
@@ -182,6 +189,8 @@ async def my_liked_posts(
 
 @router.get("/me/saved-posts", response_model=List[PostOut])
 async def my_saved_posts(
+    limit: int = Query(default=30, ge=1, le=60),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -190,8 +199,10 @@ async def my_saved_posts(
         .join(PostSave, PostSave.post_id == Post.id)
         .join(Master, Master.user_id == Post.master_id)
         .options(selectinload(Post.service))
-        .where(PostSave.user_id == current_user.id)
+        .where(PostSave.user_id == current_user.id, Master.is_active.is_(True))
         .order_by(Post.created_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     rows = (await db.execute(stmt)).all()
     pairs = [(post, master) for post, master in rows]
