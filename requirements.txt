@@ -5,3 +5,8 @@ asyncpg
 pydantic
 pydantic-settings
 python-dotenv
+python-jose[cryptography]
+bcrypt
+python-multipart
+slowapi
+email-validator
